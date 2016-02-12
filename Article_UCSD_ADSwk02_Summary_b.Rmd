@@ -4,6 +4,8 @@ author: B McDougall\footnote{Technologist, NSCI-Consulting, Livermore, CA 94550}
   - bamcdougall@nsci-consulting.com}
 date: "11 Feb 2016"
 output:
+  html_document:
+    toc: yes
   pdf_document:
     fig_caption: yes
     toc: yes
