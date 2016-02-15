@@ -5,6 +5,7 @@
 package roadgraph;
 
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -397,8 +398,8 @@ public class MapGraph {
 					return null;
 				} else
 				{
-					System.out.println("Count of nodes visited via Dijkstra: " +
-							counterDijkstra);
+					//					System.out.println("Count of nodes visited via Dijkstra: " +
+					//							counterDijkstra);
 					return buildRouteList(parentMap, start, goal);
 				}
 			}
@@ -505,12 +506,140 @@ public class MapGraph {
 					return null;
 				} else
 				{
-					System.out.println("Count of nodes visited via Dijkstra: " +
-							counterAStarSearch);
+					//					System.out.println("Count of nodes visited via aStarSearch: " +
+					//							counterAStarSearch);
 					return buildRouteList(parentMap, start, goal);
 				}
 			}
 	}
+
+	/** Use greedy algorithm for routing a list
+	 * of selected nodes within a graph. Search algortim
+	 * implemented is aStarSearch. Separate method used
+	 * for measuring traversing distance, so uninfluenced
+	 * by aStarSearch underestimate of distance between nodes
+	 * 
+	 * @param List of GPs of map to visit where node0 is
+	 * starting and ending site and each node visited once
+	 * 
+	 * @return List<GeographicPoint> of route to visit List
+	 * of GPs.
+	 */
+	public List<GeographicPoint> greedyCycle(List<GeographicPoint> visitList) {
+		List<GeographicPoint> listRoutes = new LinkedList<GeographicPoint>();
+		for (int i=0; i < visitList.size()-1; i++) {
+			listRoutes.addAll(aStarSearch(visitList.get(i), visitList.get(i+1)));
+		}
+		return listRoutes;
+	}
+
+	/** Method for determining total distance of a route
+	 * determined using Greedy Algorithm.
+	 * 
+	 * @param List of GPs of map to visit where node0 is
+	 * starting and ending site and each node visited once
+	 * 
+	 * @return double Distance traveled by completing a cycle.
+	 */
+	public double distanceCycleRoute(List<GeographicPoint> listRoutes){
+		double routeDistance = 0;
+		for (int i=0; i < listRoutes.size()-1; i++) {
+			for (mapEdge edge : mapVertices.get(listRoutes.get(i)).getMapEdge()) {
+				if (edge.getStart().equals(listRoutes.get(i)) && 
+						edge.getEnd().equals(listRoutes.get(i+1))) {
+					routeDistance += edge.getDistance();
+				}
+			}
+		}
+		return routeDistance;
+	}
+
+	/** Method for simple model of traveling sales person 
+	 * decision-based improvements using greedy algorithm
+	 * & Two-Opt swapping
+	 * 
+	 * @param List of GPs of map to visit where node0 is
+	 * starting and ending site and each node visited once
+	 * 
+	 * @return double Distance traveled by completing a cycle.
+	 */
+	public List<GeographicPoint> twoOptSwap(List<GeographicPoint> visitList) {
+		// initialize parameters for tracking best route visited and
+		// for holding intermediate route of 2-opt permutations
+		double distanceNewGreedy2OptRouting = Double.POSITIVE_INFINITY;
+		double distanceBestGreedy2OptRouting = Double.POSITIVE_INFINITY;
+		List<GeographicPoint> newVisitList = new LinkedList<GeographicPoint>();
+		List<GeographicPoint> newGreedyRouting = new LinkedList<GeographicPoint>();
+		List<GeographicPoint> bestVisitList = new LinkedList<GeographicPoint>();
+		List<GeographicPoint> bestGreedy2OptRouting = new LinkedList<GeographicPoint>();
+
+		bestGreedy2OptRouting = greedyCycle(visitList);
+		distanceBestGreedy2OptRouting = distanceCycleRoute(bestGreedy2OptRouting);
+		int allowableSwap = visitList.size() - 2;
+		int visitListSize = visitList.size();
+
+		// indices are specified such that 1st and last sites are not swapped
+		for (int i = 1; i < allowableSwap - 1; i++) {
+			for (int k = i + 1; k < allowableSwap; k++) {
+				newVisitList = implementTwoOptSwap(visitList, i, k);
+				// check whether distance of new two-opt path is better than
+				// previously determined best distance. If yes, then save path
+				newGreedyRouting = greedyCycle(newVisitList);
+				distanceNewGreedy2OptRouting = distanceCycleRoute(newGreedyRouting);
+
+				if (distanceNewGreedy2OptRouting < distanceBestGreedy2OptRouting){
+					bestVisitList = newVisitList;
+					bestGreedy2OptRouting = newGreedyRouting;
+					distanceBestGreedy2OptRouting = distanceNewGreedy2OptRouting;
+					System.out.println("\nA shorter distance is returned by new routing, which is " +
+							"total distance [km] = " + String.format("%.1f%n",
+							distanceBestGreedy2OptRouting));
+					newVisitList.clear();
+				} else {
+					System.out.println("\nThe best distance is from an earlier routing, which is " +
+							"total distance [km] = " + String.format("%.1f%n",
+							distanceBestGreedy2OptRouting));
+					System.out.println("\n\tThe distance from this run of TwoOpt Swap is [km] = " +
+							 String.format("%.1f%n", distanceNewGreedy2OptRouting));
+					newVisitList.clear();
+				}				
+			}
+		}
+		return bestGreedy2OptRouting;
+	}
+
+
+	/** Method for executing Two-Opt swapping of a route.
+	 * See [Two-Opt Swap](https://en.wikipedia.org/wiki/2-opt)
+	 * for details
+	 * 
+	 * @param List of GPs of map to visit where node0 is
+	 * starting and ending site and each node visited once
+	 * @param i Used for i-k of Two-Opt Swapping algorithm
+	 * @param k Used for i-k of Two-Opt Swapping algorithm
+	 * 
+	 * @return double Distance traveled by completing a cycle.
+	 */
+	private List<GeographicPoint> implementTwoOptSwap(List<GeographicPoint> visitList,
+			int i, int k) {
+		List<GeographicPoint> newVisitList = new LinkedList<GeographicPoint>();
+		// Generate first (i-1) elements as-is
+		for (int iIndex = 0; iIndex < i; iIndex++) {
+			newVisitList.add(visitList.get(iIndex));
+		}
+		// Reverse order of elements (i...k)
+		for (int iIndex = k; iIndex >= i; iIndex--) {
+			newVisitList.add(visitList.get(iIndex));
+		}
+		// Generate elements (k+1...n) as-is
+		for (int iIndex = k+1; iIndex < visitList.size(); iIndex++) {
+			newVisitList.add(visitList.get(iIndex));
+		}
+		return newVisitList;
+	}
+
+
+
 	/** Method for printing MapGraph for debugging
 	 * 
 	 * @param map MapGraph
@@ -617,6 +746,7 @@ public class MapGraph {
 		printMapGraph(graph2.aStarSearch(new GeographicPoint(7, 3), new GeographicPoint(4, -1))); 
 		 */
 
+		/*		
 		// You can use this method for testing.
 		// Use this code in Week 3 End of Week Quiz
 
@@ -628,10 +758,29 @@ public class MapGraph {
 		GeographicPoint start = new GeographicPoint(32.8648772, -117.2254046);
 		GeographicPoint end = new GeographicPoint(32.8660691, -117.217393);
 
-
 		List<GeographicPoint> route = theMap.dijkstra(start,end);
 		List<GeographicPoint> route2 = theMap.aStarSearch(start,end);
+		 */
+		// Map and TSP Testing		
+		System.out.print("Making a new map...");
+		MapGraph theMap = new MapGraph();
+		System.out.print("DONE. \nLoading the map...");
+		GraphLoader.loadRoadMap("data/testdata/simpletest.map", theMap);
+		System.out.println("DONE.");
 
+		List<GeographicPoint> visitList = new LinkedList<GeographicPoint>();
+		visitList.add(new GeographicPoint(4, 1));
+		visitList.add(new GeographicPoint(7, 3));
+		visitList.add(new GeographicPoint(8, -1));
+		visitList.add(new GeographicPoint(6.5, 0));
+		visitList.add(new GeographicPoint(5, 1));
+		visitList.add(new GeographicPoint(4, 0));
+		visitList.add(new GeographicPoint(4, 1));
 
+		System.out.println("\n\tTotal distance [km] = " + String.format("%.1f%n",
+				theMap.distanceCycleRoute(theMap.greedyCycle(visitList))));
+
+		System.out.println("The optimal decision route is:");
+		printMapGraph(theMap.twoOptSwap(visitList));
 	}
 }
